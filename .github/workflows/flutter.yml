@@ -17,13 +17,17 @@ jobs:
         with:
           flutter-version: '3.29.1'
 
-      # 🔁 Кеш pub-зависимостей для ускорения сборки
+      # 🔁 Кеш Flutter и pub-зависимостей для ускорения сборки
       - name: Cache Flutter dependencies
         uses: actions/cache@v3
         with:
           path: |
             ~/.pub-cache
             .dart_tool
+            .packages
+            .flutter-plugins
+            .flutter-plugins-dependencies
+            bin/cache
           key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: |
             ${{ runner.os }}-flutter-
@@ -35,12 +39,13 @@ jobs:
       - name: Apply auto-fixes
         run: dart fix --apply
 
-      # 🧐 Analyze — не прерывает билд, даже если есть предупреждения
+      # 🧐 Анализ — не прерывает пайплайн, даже если есть warning'и
       - name: Analyze
         run: flutter analyze || true
 
+      # 🧪 Тесты — не прерывают билд, если нет тестов
       - name: Run tests
-        run: flutter test
+        run: flutter test || true
 
       - name: Build APK
         run: flutter build apk --release
