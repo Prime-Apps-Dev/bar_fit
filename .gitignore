@@ -1,0 +1,78 @@
+# ====================================
+# == Flutter/Dart/Pub related
+# ====================================
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+
+# Flutter obfuscation/symbols
+app.*.symbols
+app.*.map.json
+
+# ====================================
+# == Android
+# ====================================
+android/.gradle/
+android/app/build/
+android/key.properties
+*.jks
+
+# Android Studio debug/profile/release
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# ====================================
+# == iOS/macOS
+# ====================================
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Runner.xcworkspace
+macos/Pods/
+macos/.symlinks/
+macos/Flutter/ephemeral/
+*.xcworkspace
+*.xcodeproj
+*.xcuserstate
+DerivedData/
+
+# ====================================
+# == VS Code / JetBrains / IDEs
+# ====================================
+*.iml
+*.ipr
+*.iws
+.idea/
+/.vscode/         # включи, если не коммитишь launch.json и tasks.json
+
+# ====================================
+# == Secrets
+# ====================================
+.env
+.env.*
+google-services.json
+*.keystore
+
+# ====================================
+# == Miscellaneous
+# ====================================
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
