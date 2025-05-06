@@ -17,7 +17,6 @@ jobs:
         with:
           flutter-version: '3.29.1'
 
-      # 🔁 Кеш Flutter и pub-зависимостей для ускорения сборки
       - name: Cache Flutter dependencies
         uses: actions/cache@v3
         with:
@@ -35,17 +34,21 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # 🧹 Dart auto-fix: исправляет часть warning'ов
       - name: Apply auto-fixes
         run: dart fix --apply
 
-      # 🧐 Анализ — не прерывает пайплайн, даже если есть warning'и
       - name: Analyze
         run: flutter analyze || true
 
-      # 🧪 Тесты — не прерывают билд, если нет тестов
       - name: Run tests
         run: flutter test || true
+
+      # ✅ Устанавливаем Java 17 перед сборкой
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Build APK
         run: flutter build apk --release
