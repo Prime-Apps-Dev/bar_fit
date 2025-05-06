@@ -1,16 +1,72 @@
-# bar_fit
+# 🏋️ bar_fit
 
-Workout App
+Фитнес-приложение на Flutter с тёмной темой, быстрым интерфейсом и возможностью масштабирования.  
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 🚀 Запуск проекта
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+git clone https://github.com/Prime-Apps-Dev/bar_fit.git
+cd bar_fit
+flutter pub get
+cp .env.template .env
+# Заполни .env и запускай
+flutter run
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 📦 Сборка APK
+
+```bash
+flutter build apk --release
+```
+
+---
+
+## 🧪 Покрытие тестами
+
+```bash
+flutter test --coverage
+```
+
+Артефакт `coverage/lcov.info` создаётся автоматически.
+
+---
+
+## 🤖 GitHub Actions
+
+CI автоматически:
+- устанавливает зависимости
+- запускает тесты
+- билдит `.apk`
+- публикует GitHub Release
+
+---
+
+## 📁 Структура проекта
+
+```
+lib/
+├── features/       # Экраны
+├── services/       # API, prefs
+├── widgets/        # Переиспользуемые виджеты
+├── core/           # Тема, утилиты
+```
+
+---
+
+## 📄 Файлы
+
+- `.env.template` — заполни и скопируй в `.env`
+- `GUIDE.md` — гайд по Git и GitHub
+- `CONTRIBUTING.md` — как вносить вклад
+
+---
+
+## 🧠 Документация
+
+Смотри [GUIDE.md](GUIDE.md) для полного гида по Git, GitHub и CI/CD.
+
+---
