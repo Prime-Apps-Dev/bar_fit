@@ -40,15 +40,33 @@ jobs:
       - name: Analyze
         run: flutter analyze || true
 
-      - name: Run tests
-        run: flutter test || true
+      # ✅ Тесты с покрытием
+      - name: Run tests with coverage
+        run: flutter test --coverage || true
 
-      # ✅ Устанавливаем Java 17 перед сборкой
+      - name: Upload test coverage
+        uses: actions/upload-artifact@v4.3.1
+        with:
+          name: test-coverage
+          path: coverage/lcov.info
+
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      # ✅ Подстановка актуального build-number в pubspec.yaml
+      - name: Generate version string and patch pubspec.yaml
+        id: versioning
+        run: |
+          BASE_VERSION=$(grep '^version:' pubspec.yaml | cut -d '+' -f 1 | cut -d ' ' -f 2)
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          VERSION="$BASE_VERSION+$BUILD_NUMBER"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          sed -i "s/^version:.*/version: $VERSION/" pubspec.yaml
+          echo "🔢 Set version to $VERSION"
 
       - name: Build APK
         run: flutter build apk --release
@@ -58,3 +76,12 @@ jobs:
         with:
           name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.versioning.outputs.VERSION }}
+          name: Release v${{ steps.versioning.outputs.VERSION }}
+          files: build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
