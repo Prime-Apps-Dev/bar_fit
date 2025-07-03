@@ -1,6 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_picker_plus/flutter_picker_plus.dart';
+import 'package:flutter_picker/flutter_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'three_screen.dart';
@@ -13,11 +13,12 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController exerciseCountController = TextEditingController();
   final TextEditingController roundCountController = TextEditingController();
-  int exerciseMinutes = 0,
-      exerciseSeconds = 30,
-      breakSeconds = 10,
-      roundBreakMinutes = 0,
-      roundBreakSeconds = 30;
+  int roundMinutes = 8;
+  int roundBreakMinutes = 2;
+  int roundBreakSeconds = 0;
+  int exerciseMinutes = 0;
+  int exerciseSeconds = 30;
+  int breakSeconds = 3;
   String selectedMelody = 'assets/sounds/002.mp3';
   final List<String> melodies = [
     'assets/sounds/002.mp3',
@@ -69,45 +70,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await prefs.setInt(
         'roundBreak', roundBreakMinutes * 60 + roundBreakSeconds);
     await prefs.setString('selectedMelody', selectedMelody);
-  }
-
-  void _showPicker(BuildContext context, String title, List<int> initialValues,
-      Function(List<int>) onConfirm) {
-    Picker(
-      adapter: NumberPickerAdapter(data: [
-        NumberPickerColumn(
-            begin: 0,
-            end: 59,
-            initValue: initialValues[0],
-            suffix: Text(' мин')),
-        NumberPickerColumn(
-            begin: 0,
-            end: 59,
-            initValue: initialValues[1],
-            suffix: Text(' сек')),
-      ]),
-      delimiter: [
-        PickerDelimiter(
-            child: Container(
-                width: 30.0,
-                height: 150,
-                alignment: Alignment.center,
-                child: Text(':'))),
-      ],
-      hideHeader: false,
-      title: Text(title),
-      selectedTextStyle:
-          TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
-      confirmText: 'Выбрать',
-      confirmTextStyle:
-          TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
-      cancelText: 'Отмена',
-      cancelTextStyle:
-          TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-      onConfirm: (Picker picker, List value) {
-        onConfirm(value.cast<int>());
-      },
-    ).showModal(context);
   }
 
   void _showExerciseBreakPicker(BuildContext context, String title,
@@ -172,41 +134,634 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ).showModal(context);
   }
 
+  void _showCustomDurationPicker(BuildContext context, String title,
+      int initialMinutes, int initialSeconds, Function(int, int) onConfirm) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        int selectedMinutes = initialMinutes;
+        int selectedSeconds = initialSeconds;
+
+        return Container(
+          height: 380,
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Текст "МИН"
+                    const Text(
+                      'МИН',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Рулетка для минут
+                    Expanded(
+                      child: ListWheelScrollView.useDelegate(
+                        itemExtent: 60,
+                        physics: const FixedExtentScrollPhysics(),
+                        onSelectedItemChanged: (index) {
+                          selectedMinutes = index;
+                        },
+                        childDelegate: ListWheelChildBuilderDelegate(
+                          builder: (context, index) {
+                            return Center(
+                              child: Text(
+                                '$index',
+                                style: const TextStyle(
+                                  fontSize: 52,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            );
+                          },
+                          childCount: 60,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Рулетка для секунд
+                    Expanded(
+                      child: ListWheelScrollView.useDelegate(
+                        itemExtent: 60,
+                        physics: const FixedExtentScrollPhysics(),
+                        onSelectedItemChanged: (index) {
+                          selectedSeconds = index;
+                        },
+                        childDelegate: ListWheelChildBuilderDelegate(
+                          builder: (context, index) {
+                            return Center(
+                              child: Text(
+                                '$index',
+                                style: const TextStyle(
+                                  fontSize: 52,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            );
+                          },
+                          childCount: 60,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Текст "СЕК"
+                    const Text(
+                      'СЕК',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Кнопки по вертикали, обе синие
+              Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        onConfirm(selectedMinutes, selectedSeconds);
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      child: const Text('Сохранить', style: TextStyle(color: Colors.white),), 
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      child: const Text('Отменить', style: TextStyle(color: Colors.white),),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showEditBottomSheet(BuildContext context, String title,
+      List<TextEditingController> controllers, List<String> labels) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+              minHeight: 0,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 24,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Контейнер для ввода количества упражнений или кругов
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.fitness_center, color: Colors.blue),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: controllers[0],
+                            decoration: InputDecoration(
+                              labelText: labels[0],
+                              border: InputBorder.none,
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Длительность
+                  GestureDetector(
+                    onTap: () => _showCustomDurationPicker(
+                      context,
+                      'Длительность',
+                      exerciseMinutes,
+                      exerciseSeconds,
+                      (minutes, seconds) {
+                        setState(() {
+                          exerciseMinutes = minutes;
+                          exerciseSeconds = seconds;
+                        });
+                      },
+                    ),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.timer, color: Colors.blue),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Длительность',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '$exerciseMinutes мин $exerciseSeconds сек',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Длительность перерыва
+                  GestureDetector(
+                    onTap: () => _showCustomDurationPicker(
+                      context,
+                      'Перерыв',
+                      roundBreakMinutes,
+                      roundBreakSeconds,
+                      (minutes, seconds) {
+                        setState(() {
+                          roundBreakMinutes = minutes;
+                          roundBreakSeconds = seconds;
+                        });
+                      },
+                    ),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.pause_circle_filled, color: Colors.blue),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Перерыв',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '$roundBreakMinutes мин $roundBreakSeconds сек',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Кнопки по вертикали, обе синие
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {});
+                            Navigator.of(context).pop();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          child: const Text('Сохранить', style: TextStyle(color: Colors.white),),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          child: const Text('Отменить', style: TextStyle(color: Colors.white)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.stop();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double cardWidth = screenWidth > 500 ? 440 : screenWidth * 0.97;
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F8F8),
       body: Center(
         child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16), // Добавили отступы
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 20),
+                // Все ваши карточки идут тут, теперь с отступами слева и справа
+                Container(
+                  width: cardWidth,
+                  constraints: const BoxConstraints(minHeight: 80), // минимальная высота
+                  padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24), // увеличили padding
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20), // чуть больше скругление
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.emoji_events_outlined, size: 32, color: Colors.black),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Text('Режим победителя',
+                            style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black)),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.star, color: Colors.blue, size: 30),
+                        onPressed: _saveSettings,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.bookmark, color: Colors.blue, size: 30),
+                        onPressed: _saveSettings,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 22),
+                // Круги
+                Container(
+                  width: cardWidth,
+                  constraints: const BoxConstraints(minHeight: 110),
+                  padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.circle_outlined, color: Colors.blue, size: 28),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text('Круги',
+                                style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: () => _showEditBottomSheet(
+                          context,
+                          'Настройки круга',
+                          [roundCountController],
+                          ['Введите количество кругов'],
+                        ),
+                        child: Column(
+                          children: [
+                            buildEditCard(
+                              Icons.timer,
+                              'Длительность',
+                              '$exerciseMinutes мин $exerciseSeconds сек',
+                              () => _showEditBottomSheet(
+                                context,
+                                'Настройки круга',
+                                [roundCountController],
+                                ['Введите количество кругов'],
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            buildEditCard(
+                              Icons.pause_circle,
+                              'Перерыв',
+                              '$roundBreakMinutes мин $roundBreakSeconds сек',
+                              () => _showEditBottomSheet(
+                                context,
+                                'Настройки круга',
+                                [roundCountController],
+                                ['Введите количество кругов'],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 22),
+                // Упражнения
+                Container(
+                  width: cardWidth,
+                  constraints: const BoxConstraints(minHeight: 110),
+                  padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.circle_outlined, color: Colors.blue, size: 28),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text('Упражнения',
+                                style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: () => _showEditBottomSheet(
+                          context,
+                          'Настройки упражнения',
+                          [exerciseCountController],
+                          ['Введите количество упражнений'],
+                        ),
+                        child: Column(
+                          children: [
+                            buildEditCard(
+                              Icons.timer,
+                              'Длительность',
+                              '$exerciseMinutes мин $exerciseSeconds сек',
+                              () => _showEditBottomSheet(
+                                context,
+                                'Настройки упражнения',
+                                [exerciseCountController],
+                                ['Введите количество упражнений'],
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            buildEditCard(
+                              Icons.pause,
+                              'Перерыв',
+                              '$breakSeconds сек',
+                              () => _showEditBottomSheet(
+                                context,
+                                'Настройки упражнения',
+                                [exerciseCountController],
+                                ['Введите количество упражнений'],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 22),
+                // Музыка
+                GestureDetector(
+                  onTap: () => _showBottomSheet(context, 'Мелодия'),
+                  child: Container(
+                    width: cardWidth,
+                    constraints: const BoxConstraints(minHeight: 80),
+                    padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.music_note, color: Colors.blue, size: 28),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text('Мелодия',
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black)),
+                        ),
+                        const Icon(Icons.edit, color: Colors.blue, size: 22),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+             
+              ],
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 20),
-              const Text('Настройки Режима',
-                  style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.black)),
-              const SizedBox(height: 20),
-              _buildSettingsCard(
-                  Icons.emoji_events_outlined, 'Режим победителя', true),
-              const SizedBox(height: 20),
-              _buildRoundSettingsCard(),
-              const SizedBox(height: 20),
-              _buildExerciseSettingsCard(),
-              const SizedBox(height: 20),
-              _buildMusicSettingsCard(),
-              const SizedBox(height: 30),
-              _buildActionButton('Сохранить', () async {
-                await _saveSettings();
-                Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (context) => ThreeScreen()));
-              }),
-              const SizedBox(height: 10),
-              _buildActionButton('Отменить', () {
-                Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (context) => ThreeScreen()));
-              }),
-              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await _saveSettings();
+                    Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (context) => ThreeScreen()));
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  child: const Text('Сохранить', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Отмена
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  child: const Text('Отменить', style: TextStyle(color: Colors.white)),
+                ),
+              ),
             ],
           ),
         ),
@@ -263,14 +818,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ['Введите количество $title'.toLowerCase()],
               ),
             ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
   }
 
   Widget _buildRoundSettingsCard() {
     return Container(
-      height: 90,
+      height: 130,
       width: 320,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -287,14 +842,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           _buildSettingsHeader(Icons.timer_outlined, 'Круги',
               roundCountController, 'Введите количество кругов'),
-          _buildRoundBreakPickerRow(
-              'Перерыв:', roundBreakMinutes, roundBreakSeconds,
-              (values) {
-            setState(() {
-              roundBreakMinutes = values[0];
-              roundBreakSeconds = values[1];
-            });
-          }),
+          // Теперь вся настройка круга по нажатию на любую строку
+          GestureDetector(
+            onTap: () => _showEditBottomSheet(
+              context,
+              'Настройки круга',
+              [roundCountController],
+              ['Введите количество кругов'],
+            ),
+            child: Column(
+              children: [
+                _buildPickerContainer(
+                  'Длительность круга',
+                  '$exerciseMinutes мин $exerciseSeconds сек',
+                ),
+                const SizedBox(height: 10),
+                _buildPickerContainer(
+                  'Перерыв',
+                  '$roundBreakMinutes мин $roundBreakSeconds сек',
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -319,19 +888,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           _buildSettingsHeader(Icons.timer_outlined, 'Упражнения',
               exerciseCountController, 'Введите количество упражнений'),
-          _buildPickerRow('Длительность:', exerciseMinutes, exerciseSeconds,
-              (values) {
-            setState(() {
-              exerciseMinutes = values[0];
-              exerciseSeconds = values[1];
-            });
-          }),
-          const SizedBox(height: 10),
-          _buildExerciseBreakPickerRow('Перерыв:', breakSeconds, (value) {
-            setState(() {
-              breakSeconds = value;
-            });
-          }),
+          // Теперь вся настройка упражнения по нажатию на любую строку
+          GestureDetector(
+            onTap: () => _showEditBottomSheet(
+              context,
+              'Настройки упражнения',
+              [exerciseCountController],
+              ['Введите количество упражнений'],
+            ),
+            child: Column(
+              children: [
+                _buildPickerContainer(
+                  'Длительность',
+                  '$exerciseMinutes мин $exerciseSeconds сек',
+                ),
+                const SizedBox(height: 10),
+                _buildPickerContainer(
+                  'Перерыв',
+                  '$breakSeconds сек',
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -376,25 +954,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSettingsHeader(IconData icon, String title,
       TextEditingController controller, String label) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const SizedBox(width: 10),
-            Icon(icon, size: 30, color: Colors.blue),
-            const SizedBox(width: 10),
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black)),
-          ],
-        ),
-        IconButton(
-          icon: Icon(Icons.edit, size: 30, color: Colors.blue),
-          onPressed: () =>
-              _showEditBottomSheet(context, title, [controller], [label]),
-        ),
+        const SizedBox(width: 10),
+        Icon(icon, size: 30, color: Colors.blue),
+        const SizedBox(width: 10),
+        Text(title,
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black)),
       ],
     );
   }
@@ -402,7 +971,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildPickerRow(
       String text, int minutes, int seconds, Function(List<int>) onConfirm) {
     return GestureDetector(
-      onTap: () => _showPicker(context, text, [minutes, seconds], onConfirm),
+      onTap: () => _showCustomDurationPicker(
+          context, text, minutes, seconds, (min, sec) => onConfirm([min, sec])),
       child: _buildInfoRow(Icons.timer, text, '$minutes мин $seconds сек'),
     );
   }
@@ -467,142 +1037,202 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showEditBottomSheet(BuildContext context, String title,
-      List<TextEditingController> controllers, List<String> labels) {
+  void _showBottomSheet(BuildContext context, String title) {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return Container(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 20),
-                  for (int i = 0; i < controllers.length; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10.0),
-                      child: TextField(
-                        controller: controllers[i],
-                        decoration: InputDecoration(labelText: labels[i]),
-                        keyboardType: TextInputType.number,
+        return Container(
+          height: 450,
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: melodies.length,
+                  itemBuilder: (context, index) {
+                    return GestureDetector(
+                      onTap: () async {
+                        // Остановить предыдущий звук
+                        await _audioPlayer.stop();
+                        // Проиграть выбранный звук
+                        await _audioPlayer.play(AssetSource(melodies[index]));
+                        setState(() {
+                          selectedMelody = melodies[index];
+                        });
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.grey.withOpacity(0.5),
+                                spreadRadius: 2,
+                                blurRadius: 5,
+                                offset: Offset(0, 3)),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Icon(Icons.music_note,
+                                size: 30, color: Colors.blue),
+                            Text('Мелодия ${index + 1}',
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black)),
+                            Icon(Icons.check,
+                                size: 30,
+                                color: selectedMelody == melodies[index]
+                                    ? Colors.green
+                                    : Colors.transparent),
+                          ],
+                        ),
                       ),
-                    ),
-                  _buildBottomSheetActionButtons(),
-                ],
+                    );
+                  },
+                ),
               ),
-            );
-          },
+            ],
+          ),
         );
       },
     );
   }
 
-  Widget _buildBottomSheetActionButtons() {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: TextButton(
-            style: TextButton.styleFrom(
-                backgroundColor: Colors.blue,
-                padding: const EdgeInsets.symmetric(vertical: 15)),
-            onPressed: () async {
-              await _saveSettings();
-              Navigator.of(context).pop();
-            },
-            child: const Text("Сохранить",
-                style: TextStyle(color: Colors.white, fontSize: 18)),
+  Widget _buildPickerContainer(String title, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
           ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: TextButton(
-            style: TextButton.styleFrom(
-                backgroundColor: Colors.blue,
-                padding: const EdgeInsets.symmetric(vertical: 15)),
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text("Отмена",
-                style: TextStyle(color: Colors.white, fontSize: 18)),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue,
+            ),
           ),
-        ),
-        const SizedBox(height: 10),
-      ],
+        ],
+      ),
     );
   }
 
-  void _showBottomSheet(BuildContext context, String title) {
-  showModalBottomSheet(
-    context: context,
-    builder: (BuildContext context) {
-      return Container(
-        height: 450,
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget buildEditCard(IconData icon, String title, String value, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            Expanded(
-              child: ListView.builder(
-                itemCount: melodies.length,
-                itemBuilder: (context, index) {
-                  return GestureDetector(
-                    onTap: () async {
-                      await _audioPlayer.setSource(AssetSource(melodies[index]));
-                      await _audioPlayer.resume();
-                      setState(() {
-                        selectedMelody = melodies[index];
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.grey.withOpacity(0.5),
-                              spreadRadius: 2,
-                              blurRadius: 5,
-                              offset: Offset(0, 3)),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Icon(Icons.music_note,
-                              size: 30, color: Colors.blue),
-                          Text('Мелодия ${index + 1}',
-                              style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black)),
-                          Icon(Icons.check,
-                              size: 30,
-                              color: selectedMelody == melodies[index]
-                                  ? Colors.green
-                                  : Colors.transparent),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+            Row(
+              children: [
+                Icon(icon, color: Colors.blue),
+                const SizedBox(width: 10),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
               ),
             ),
           ],
         ),
-      );
-    },
-  );
-}
+      ),
+    );
+  }
+
+  // Добавлен новый метод для сборки карточки настроек с возможностью редактирования
+  Widget _buildEditableSettingsCard(IconData icon, String title, String value, VoidCallback onEditTap) {
+    return Container(
+      height: 70,
+      width: 320,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.grey.withOpacity(0.5),
+              spreadRadius: 2,
+              blurRadius: 5,
+              offset: Offset(0, 3)),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              const SizedBox(width: 10),
+              Icon(icon, size: 30, color: Colors.blue),
+              const SizedBox(width: 10),
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black)),
+            ],
+          ),
+          GestureDetector(
+            onTap: onEditTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(Icons.edit, size: 20, color: Colors.blue),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
