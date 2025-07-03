@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -20,9 +21,15 @@ class OneScreen extends StatefulWidget {
 }
 
 class _OneScreenState extends State<OneScreen> {
-  late Timer _timer;
-  int _secondsSpent = 0, _goalMinutes = 30;
+  late Timer _tipUpdateTimer;
+  Timer? _sessionTimer;
+  Timer? _sharedTimerListener;
+  Timer? _midnightTimer;
+  int _goalMinutes = 30;
   String? _userName, _userLastName, _previousDate, _currentTip;
+  int _currentSessionSeconds = 0;
+  int _sharedTimerSeconds = 0;
+  DateTime? _firstSessionDate;
 
   final List<String> _tips = [
     'Разогревайся перед каждой тренировкой.',
@@ -127,17 +134,40 @@ class _OneScreenState extends State<OneScreen> {
     'Получай удовольствие от тренировок!',
   ];
 
+  Map<String, int> _historyByDay = {};
+
+  final PageController _pageController = PageController(initialPage: 1);
+  int _currentPage = 1;
+
   @override
   void initState() {
     super.initState();
     _loadData();
-    _startTimer();
+    _startSharedTimerListener();
     _scheduleTipUpdate();
+    _scheduleMidnightUpdate();
   }
+
+ void _scheduleMidnightUpdate() {
+  final now = DateTime.now();
+  final tomorrow = DateTime(now.year, now.month, now.day).add(const Duration(days: 1));
+  final duration = tomorrow.difference(now);
+
+  _midnightTimer?.cancel();
+  _midnightTimer = Timer(duration, () async {
+    _updateTodayHistory();
+    await _resetCurrentSessionTime();
+    setState(() {});
+    _scheduleMidnightUpdate(); // Запланировать снова
+  });
+}
+
 
   @override
   void dispose() {
-    _timer.cancel();
+    _tipUpdateTimer.cancel();
+    _sharedTimerListener?.cancel();
+    _midnightTimer?.cancel();
     super.dispose();
   }
 
@@ -146,30 +176,38 @@ class _OneScreenState extends State<OneScreen> {
     setState(() {
       _userName = prefs.getString('userName');
       _userLastName = prefs.getString('userLastName');
-      _secondsSpent = prefs.getInt('totalTime') ?? 0;
       _goalMinutes = prefs.getInt('goalMinutes') ?? 30;
       _previousDate = prefs.getString('previousDate');
       _currentTip = prefs.getString('currentTip') ?? _generateRandomTip();
-      if (_shouldUpdateTip()) {
-        _currentTip = _generateRandomTip();
-        prefs.setString('currentTip', _currentTip!);
-        prefs.setString('previousDate', DateTime.now().toIso8601String());
+      final firstDateStr = prefs.getString('firstSessionDate');
+      if (firstDateStr != null) {
+        _firstSessionDate = DateTime.tryParse(firstDateStr);
       }
     });
+    if (_firstSessionDate == null) {
+      final now = DateTime.now();
+      _firstSessionDate = now;
+      await prefs.setString('firstSessionDate', now.toIso8601String());
+    }
     if (_userName == null || _userLastName == null) _showNameInputDialog();
+    _loadCurrentSessionTime();
+    _loadHistoryByDay();
   }
 
-  Future<void> _saveData() async {
+  Future<void> _loadCurrentSessionTime() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('totalTime', _secondsSpent);
-    await prefs.setString('previousDate', DateTime.now().toIso8601String());
-    await prefs.setString('currentTip', _currentTip!);
+    setState(() {
+      _currentSessionSeconds = prefs.getInt('currentSessionTime') ?? 0;
+    });
   }
 
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() => _secondsSpent++);
-      _saveData();
+  void _startSessionTimer() {
+    _sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _currentSessionSeconds = (_currentSessionSeconds + 1);
+      });
+      await prefs.setInt('currentSessionTime', _currentSessionSeconds);
     });
   }
 
@@ -178,20 +216,19 @@ class _OneScreenState extends State<OneScreen> {
     final nextUpdate = DateTime(now.year, now.month, now.day + 2);
     final durationUntilNextUpdate = nextUpdate.difference(now);
 
-    Timer(durationUntilNextUpdate, () {
+    _tipUpdateTimer = Timer(durationUntilNextUpdate, () {
       setState(() {
         _currentTip = _generateRandomTip();
       });
-      _saveData();
-      _scheduleTipUpdate(); // Рекурсивно планируем следующий запуск
+      _saveCurrentTip();
+      _scheduleTipUpdate();
     });
   }
 
-  bool _shouldUpdateTip() {
-    if (_previousDate == null) return true;
-    final previousDateTime = DateTime.parse(_previousDate!);
-    final now = DateTime.now();
-    return now.difference(previousDateTime).inDays >= 2;
+  Future<void> _saveCurrentTip() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('currentTip', _currentTip!);
+    await prefs.setString('previousDate', DateTime.now().toIso8601String());
   }
 
   String _generateRandomTip() {
@@ -200,34 +237,51 @@ class _OneScreenState extends State<OneScreen> {
   }
 
   void _showNameInputDialog() {
-    final firstNameController = TextEditingController();
-    final lastNameController = TextEditingController();
+    final nameController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Введите ваше имя и фамилию'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text(
+          'Добро пожаловать!',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.blue),
+          textAlign: TextAlign.center,
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const Text(
+              'Пожалуйста, введите ваше имя',
+              style: TextStyle(fontSize: 16, color: Colors.black87),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
             TextField(
-                controller: firstNameController,
-                decoration: const InputDecoration(hintText: 'Ваше имя')),
-            TextField(
-                controller: lastNameController,
-                decoration: const InputDecoration(hintText: 'Ваша фамилия'))
+              controller: nameController,
+              decoration: InputDecoration(
+                hintText: 'Ваше имя',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              textCapitalization: TextCapitalization.words,
+            ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () {
-              if (firstNameController.text.isNotEmpty &&
-                  lastNameController.text.isNotEmpty) {
-                _saveUserName(
-                    firstNameController.text, lastNameController.text);
+              if (nameController.text.isNotEmpty) {
+                _saveUserName(nameController.text, '');
                 Navigator.pop(context);
               }
             },
-            child: const Text('Сохранить'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: Colors.blue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            ),
+            child: const Text('Сохранить', style: TextStyle(fontSize: 16)),
           ),
         ],
       ),
@@ -244,255 +298,445 @@ class _OneScreenState extends State<OneScreen> {
     });
   }
 
-  String _formatTime(int seconds) {
-    final int minutes = seconds ~/ 60;
-    final int remainingSeconds = seconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  void _startSharedTimerListener() {
+    _sharedTimerListener = Timer.periodic(const Duration(seconds: 1), (_) async {
+      final prefs = await SharedPreferences.getInstance();
+      final seconds = prefs.getInt('sharedTimer') ?? 0;
+      if (seconds != _sharedTimerSeconds) {
+        setState(() {
+          _sharedTimerSeconds = seconds;
+        });
+      }
+    });
   }
+
+  Future<void> _resetCurrentSessionTime() async {
+    _currentSessionSeconds = 0;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('sharedTimer', 0);
+  }
+
+  int get _daysSinceFirstSession {
+    if (_firstSessionDate == null) return 0;
+    return DateTime.now().difference(_firstSessionDate!).inDays + 1;
+  }
+
+  int get _weeksSinceFirstSession {
+    if (_firstSessionDate == null) return 0;
+    return ((DateTime.now().difference(_firstSessionDate!).inDays) / 7).ceil();
+  }
+
+  String _formatTime(int seconds) {
+    if (seconds < 60) {
+      // Только секунды
+      return '${seconds.toString().padLeft(2, '0')} сек';
+    } else if (seconds < 3600) {
+      // Минуты:Секунды
+      final int minutes = seconds ~/ 60;
+      final int remainingSeconds = seconds % 60;
+      return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+    } else {
+      // Часы:Минуты:Секунды
+      final int hours = seconds ~/ 3600;
+      final int minutes = (seconds % 3600) ~/ 60;
+      final int remainingSeconds = seconds % 60;
+      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+    }
+  }
+
+  String _formatDayTime(int seconds) {
+    if (seconds < 60) {
+      return '$seconds сек';
+    } else if (seconds < 3600) {
+      final int minutes = seconds ~/ 60;
+      return '$minutes мин';
+    } else {
+      final int hours = seconds ~/ 3600;
+      final int minutes = (seconds % 3600) ~/ 60;
+      return '$hours ч $minutes мин';
+    }
+  }
+
+  Future<void> _loadHistoryByDay() async {
+    final prefs = await SharedPreferences.getInstance();
+    final mapString = prefs.getString('historyByDay');
+    if (mapString != null) {
+      final Map<String, dynamic> decoded = Map<String, dynamic>.from(
+        (mapString.isNotEmpty) ? Map<String, dynamic>.from(jsonDecode(mapString)) : {},
+      );
+      setState(() {
+        _historyByDay = decoded.map((k, v) => MapEntry(k, v as int));
+      });
+    }
+  }
+
+  Future<void> _saveHistoryByDay() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('historyByDay', jsonEncode(_historyByDay));
+  }
+
+  void _updateTodayHistory() async {
+    final now = DateTime.now();
+    final key = "${now.year}-${now.month}-${now.day}";
+    _historyByDay[key] = _sharedTimerSeconds;
+    await _saveHistoryByDay();
+  }
+
+  String _normalizeDateKey(String key) {
+  final parts = key.split('-');
+  if (parts.length == 3) {
+    final year = parts[0];
+    final month = parts[1].padLeft(2, '0');
+    final day = parts[2].padLeft(2, '0');
+    return '$year-$month-$day';
+  }
+  return key;
+}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade200,
-      body: SingleChildScrollView(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ПРИВЕТ, ${_userName?.toUpperCase() ?? 'ГОСТЬ'} ${_userLastName?.toUpperCase() ?? ''}.',
-                    style: const TextStyle(
-                        color: Colors.blue,
-                        fontSize: 27,
-                        fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 5),
-                  const Text('ГОТОВ К НОВОЙ',
-                      style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold)),
-                  const Text('ТРЕНИРОВКЕ?',
-                      style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold)),
-                ],
+      backgroundColor: Colors.white, // фон экрана теперь белый
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (index) {
+          setState(() {
+            _currentPage = index;
+          });
+        },
+        children: [
+          ProfileScreen(),
+          _buildMainContent(context),
+          TwoScreen(),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.only(left: 20, right: 20, bottom: 30),
+        child: Container(
+          height: 70,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(27),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 5),
               ),
-            ),
-            GestureDetector(
-              onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const ProfileScreen())),
-              child: Padding(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+            ],
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () {
+                  _pageController.animateToPage(0, duration: const Duration(milliseconds: 350), curve: Curves.ease);
+                },
                 child: Container(
-                  height: 120,
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(15),
+                  width: 48,
+                  height: 48,
+                  margin: const EdgeInsets.only(left: 7),
                   decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16)),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Сегодня',
-                                style: TextStyle(
-                                    fontSize: 22, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 10),
-                            Text('Сегодня: ${_formatTime(_secondsSpent)}',
-                                style: const TextStyle(
-                                    fontSize: 14, color: Colors.grey)),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            SizedBox(
-                              height: 80,
-                              width: 80,
-                              child: CircularProgressIndicator(
-                                value: _secondsSpent / (_goalMinutes * 60),
-                                backgroundColor: Colors.grey.shade300,
-                                color: Colors.blue,
-                                strokeWidth: 20,
-                              ),
-                            ),
-                            Text(_formatTime(_secondsSpent),
-                                style: const TextStyle(
-                                    fontSize: 14, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                    ],
+                    color: _currentPage == 0 ? Colors.blue : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    Icons.workspace_premium,
+                    color: _currentPage == 0 ? Colors.white : Colors.blue,
+                    size: 28,
                   ),
                 ),
               ),
-            ),
-            GestureDetector(
-              onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => ThreeScreen())),
-              child: Padding(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
-                child: Container(
-                  height: 120,
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16)),
-                  child: Row(
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Таймер',
-                              style: TextStyle(
-                                  fontSize: 22, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const Spacer(),
-                      Container(
-                        height: 100,
-                        width: 90,
-                        decoration: BoxDecoration(
-                            color: Colors.blue,
-                            borderRadius: BorderRadius.circular(10)),
-                        child: const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.emoji_events_outlined,
-                                size: 40, color: Colors.white),
-                            Text('Режим',
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white)),
-                            Text('победителя',
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  _pageController.animateToPage(0, duration: const Duration(milliseconds: 350), curve: Curves.ease);
+                },
+                child: Icon(Icons.account_circle_outlined,
+                    color: _currentPage == 0 ? Colors.blue : Colors.black, size: 33),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  _pageController.animateToPage(1, duration: const Duration(milliseconds: 350), curve: Curves.ease);
+                },
+                child: Icon(Icons.home,
+                    color: _currentPage == 1 ? Colors.blue : Colors.black, size: 35),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  _pageController.animateToPage(2, duration: const Duration(milliseconds: 350), curve: Curves.ease);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 7),
+                  child: Icon(Icons.settings,
+                      color: _currentPage == 2 ? Colors.blue : Colors.black, size: 28),
                 ),
               ),
-            ),
-            // Новый контейнер для советов по тренировкам
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
-              child: Container(
-                height: 80,
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.shade300,
-                      blurRadius: 5,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      height: 50,
-                      width: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.yellow.shade100,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.lightbulb, color: Colors.blue, size: 30),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _currentTip ?? 'Загрузка совета...',
-                        style: const TextStyle(fontSize: 14, color: Colors.black87),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 40),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Container(
-                height: 70,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16)),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      child: Container(
-                        decoration: BoxDecoration(
-                            color: Colors.blue,
-                            borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.all(14),
-                        margin: const EdgeInsets.only(left: 10),
-                        child: const Icon(Icons.workspace_premium,
-                            color: Colors.white, size: 35),
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const ProfileScreen())),
-                      child: const Icon(Icons.account_circle_outlined,
-                          color: Colors.blue, size: 35),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const OneScreen())),
-                      child:
-                      const Icon(Icons.home, color: Colors.black, size: 35),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => TwoScreen())),
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: const Icon(Icons.settings,
-                            color: Colors.black, size: 35),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _buildMainContent(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ПРИВЕТ, ${_userName?.toUpperCase() ?? 'ГОСТЬ'} ${_userLastName?.toUpperCase() ?? ''}.',
+                      style: const TextStyle(
+                          color: Colors.blue,
+                          fontSize: 27,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                const Text('ГОТОВ К НОВОЙ',
+                    style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold)),
+                const Text('ТРЕНИРОВКЕ?',
+                    style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const ProfileScreen())),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Container(
+                height: 135,
+                width: double.infinity,
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [ // добавлена тень
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.18),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Сегодня',
+                              style: TextStyle(
+                                  fontSize: 22, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 10),
+                          Text('Сегодня: ${_formatTime(_sharedTimerSeconds)}',
+                              style: const TextStyle(
+                                  fontSize: 14, color: Colors.grey)),
+                          
+                          
+                          
+                          const SizedBox(height: 10),
+// Вот этот блок добавляет историю по дням:
+...(() {
+  final now = DateTime.now();
+  return _historyByDay.entries
+      .toList()
+      .reversed
+      .take(7)
+      .map((entry) {
+    var tryParse = DateTime.tryParse(entry.key);
+    final date = tryParse;
+    String label;
+    if (date != null &&
+        date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day) {
+      label = 'Сегодня';
+    } else if (date != null) {
+      label = [
+        'Понедельник',
+        'Вторник',
+        'Среда',
+        'Четверг',
+        'Пятница',
+        'Суббота',
+        'Воскресенье'
+      ][date.weekday - 1];
+    } else {
+      label = entry.key;
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Text(
+        '$label: ${_formatDayTime(entry.value)}',
+        style: const TextStyle(
+            fontSize: 13, color: Colors.black54),
+      ),
+    );
+  }).toList();
+})(),
+                         ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 10),
+                      child: Expanded(
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            SizedBox(
+                              height: 90, // например, 120 вместо 80
+                              width: 90,  // например, 120 вместо 80
+                              child: CircularProgressIndicator(
+                                value: (_goalMinutes * 60) > 0
+                                    ? (_sharedTimerSeconds / (_goalMinutes * 60)).clamp(0.0, 1.0)
+                                    : 0,
+                                backgroundColor: Colors.grey.shade300,
+                                color: Colors.blue,
+                                strokeWidth: 18, // толщина линии круга
+                              ),
+                            ),
+                            Text(
+                              _formatTime(_sharedTimerSeconds),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (context) => ThreeScreen())),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Container(
+                height: 135,
+                width: double.infinity,
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [ // добавлена тень
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.18),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Таймер',
+                            style: TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                     Spacer(),
+                    Container(
+                      height: 100,
+                      width: 100,
+                      decoration: BoxDecoration(
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.emoji_events_outlined,
+                              size: 40, color: Colors.white),
+                          Text('Режим',
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white)),
+                          Text('победителя',
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Контейнер для советов по тренировкам
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Container(
+              height: 80,
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [ // добавлена тень
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.18),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    height: 50,
+                    width: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.yellow.shade100,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.lightbulb, color: Colors.blue, size: 30),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _currentTip ?? 'Загрузка совета...',
+                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  // ...existing code...
 }
