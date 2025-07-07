@@ -617,60 +617,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         const SizedBox(height: 60),
-        Padding(
-          padding: const EdgeInsets.all(20),
-          child: Container(
-            height: 70,
-            width: double.infinity,
-            decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(16)),
-            child: Row(
-              children: [
-                GestureDetector(
-                  child: Container(
-                    decoration: BoxDecoration(
-                        color: Colors.blue,
-                        borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.all(14),
-                    margin: const EdgeInsets.only(left: 10),
-                    child: const Icon(Icons.workspace_premium,
-                        color: Colors.white, size: 35),
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const ProfileScreen())),
-                  child: const Icon(Icons.account_circle_outlined,
-                      color: Colors.blue, size: 35),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const OneScreen())),
-                  child: const Icon(Icons.home, color: Colors.black, size: 35),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) =>  TwoScreen())),
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: const Icon(Icons.settings,
-                        color: Colors.black, size: 35),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+       
       ],
     );
   }

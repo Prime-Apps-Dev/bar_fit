@@ -1,6 +1,7 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_picker/flutter_picker.dart';
+import 'package:flutter_picker/picker.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'three_screen.dart';
@@ -40,6 +41,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _loadSettings();
   }
+  
+  void _playMelody(String path) async {
+  try {
+    await _audioPlayer.stop(); // остановить предыдущую мелодию
+    await _audioPlayer.setSource(AssetSource(path));
+    await _audioPlayer.resume();
+  } catch (e) {
+    print('Ошибка воспроизведения звука: $e');
+  }
+}
+
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1038,75 +1050,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showBottomSheet(BuildContext context, String title) {
-    showModalBottomSheet(
-      context: context,
-      builder: (BuildContext context) {
-        return Container(
-          height: 450,
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: melodies.length,
-                  itemBuilder: (context, index) {
-                    return GestureDetector(
-                      onTap: () async {
+  showModalBottomSheet(
+    context: context,
+    builder: (BuildContext context) {
+      return Container(
+        height: 450,
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            Expanded(
+              child: ListView.builder(
+                itemCount: melodies.length,
+                itemBuilder: (context, index) {
+                  return GestureDetector(
+                    onTap: () async {
+                      try {
                         // Остановить предыдущий звук
                         await _audioPlayer.stop();
-                        // Проиграть выбранный звук
-                        await _audioPlayer.play(AssetSource(melodies[index]));
+                        // Установить новый источник
+                        await _audioPlayer.setSource(
+                          AssetSource(melodies[index]),
+                        );
+                        // Запустить воспроизведение
+                        await _audioPlayer.resume();
+
                         setState(() {
                           selectedMelody = melodies[index];
                         });
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                                color: Colors.grey.withOpacity(0.5),
-                                spreadRadius: 2,
-                                blurRadius: 5,
-                                offset: Offset(0, 3)),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Icon(Icons.music_note,
-                                size: 30, color: Colors.blue),
-                            Text('Мелодия ${index + 1}',
-                                style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black)),
-                            Icon(Icons.check,
-                                size: 30,
-                                color: selectedMelody == melodies[index]
-                                    ? Colors.green
-                                    : Colors.transparent),
-                          ],
-                        ),
+
+                        // Закрыть BottomSheet, если хочешь
+                        // Navigator.pop(context);
+                      } catch (e) {
+                        print('Ошибка воспроизведения звука: $e');
+                      }
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.grey.withOpacity(0.5),
+                              spreadRadius: 2,
+                              blurRadius: 5,
+                              offset: Offset(0, 3)),
+                        ],
                       ),
-                    );
-                  },
-                ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Icon(Icons.music_note,
+                              size: 30, color: Colors.blue),
+                          Text(
+                            'Мелодия ${index + 1}',
+                            style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black),
+                          ),
+                          Icon(Icons.check,
+                              size: 30,
+                              color: selectedMelody == melodies[index]
+                                  ? Colors.green
+                                  : Colors.transparent),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildPickerContainer(String title, String value) {
     return Container(

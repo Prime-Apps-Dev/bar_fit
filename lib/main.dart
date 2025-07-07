@@ -1,12 +1,7 @@
 import 'package:bar_fit/one_screen.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // 👈 обязательно для инициализаций
-  await dotenv.load();                       // загрузка .env
-  runApp(const MyApp());
-}
+import 'package:flutter/material.dart';
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -128,3 +123,6 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
+void main() {
+  runApp(MyApp());
+}

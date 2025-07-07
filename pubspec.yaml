@@ -1,4 +1,4 @@
-name: bar_fit
+name: bori_as
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -30,24 +30,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_dotenv: ^5.1.0
-  googleapis: ^4.0.0
-  google_sign_in: ^6.0.0
-  flutter_launcher_icons: ^0.13.1
-  charts_flutter: ^0.12.0
-  flutter_picker_plus: ^1.0.0
-  shared_preferences: ^2.0.15
-  audioplayers: ^5.2.0
-  audioplayers_web: ^4.1.0
 
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.2
-  table_calendar: ^3.0.8
+  shared_preferences: ^2.2.3
   image_picker: ^1.0.8
-  provider: ^6.1.2
-  googleapis_auth: ^1.4.1
+  path_provider: ^2.1.4
+  audioplayers: ^5.2.1
+  flutter_picker: ^2.1.0
+  googleapis: ^13.1.0
+  google_sign_in: ^6.2.1
+  googleapis_auth: ^1.6.0
+  provider: ^6.1.5
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -66,17 +63,17 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
-    - assets/sounds/002.mp3
-    - assets/sounds/006.mp3
-    - assets/sounds/007.mp3
-    - assets/sounds/008.mp3
-    - assets/sounds/009.mp3
-    - assets/sounds/010.mp3
-    - assets/sounds/011.mp3
-    - assets/sounds/012.mp3
-    - assets/sounds/013.mp3
-    - assets/sounds/014.mp3
-    - assets/sounds/015.mp3
+    - 'assets/sounds/002.mp3'
+    - 'assets/sounds/006.mp3'
+    - 'assets/sounds/007.mp3'
+    - 'assets/sounds/008.mp3'
+    - 'assets/sounds/009.mp3'
+    - 'assets/sounds/010.mp3'
+    - 'assets/sounds/011.mp3'
+    - 'assets/sounds/012.mp3'
+    - 'assets/sounds/013.mp3'
+    - 'assets/sounds/014.mp3'
+    - 'assets/sounds/015.mp3'
 
 
   # The following line ensures that the Material Icons font is

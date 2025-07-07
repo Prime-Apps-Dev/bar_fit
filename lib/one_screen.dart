@@ -429,31 +429,34 @@ class _OneScreenState extends State<OneScreen> {
           child: Row(
             children: [
               GestureDetector(
-                onTap: () {
-                  _pageController.animateToPage(0, duration: const Duration(milliseconds: 350), curve: Curves.ease);
-                },
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  margin: const EdgeInsets.only(left: 7),
-                  decoration: BoxDecoration(
-                    color: _currentPage == 0 ? Colors.blue : Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(
-                    Icons.workspace_premium,
-                    color: _currentPage == 0 ? Colors.white : Colors.blue,
-                    size: 28,
-                  ),
-                ),
-              ),
+  onTap: () {
+    _pageController.animateToPage(0, duration: const Duration(milliseconds: 350), curve: Curves.ease);
+  },
+  child: Container(
+    width: 55,
+    height: 55,
+    margin: const EdgeInsets.only(left: 7),
+    decoration: BoxDecoration(
+      color: Colors.blue,  // фон всегда синий
+      borderRadius: BorderRadius.circular(12),
+    ),
+    padding: const EdgeInsets.all(8),
+    child: Icon(
+      Icons.workspace_premium,
+      color: Colors.white,  // иконка всегда белая
+      size: 35,
+    ),
+  ),
+),
+
+
               const Spacer(),
               GestureDetector(
                 onTap: () {
                   _pageController.animateToPage(0, duration: const Duration(milliseconds: 350), curve: Curves.ease);
                 },
                 child: Icon(Icons.account_circle_outlined,
-                    color: _currentPage == 0 ? Colors.blue : Colors.black, size: 33),
+                    color: _currentPage == 0 ? Colors.blue : Colors.black, size: 35),
               ),
               const Spacer(),
               GestureDetector(
@@ -471,7 +474,7 @@ class _OneScreenState extends State<OneScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(right: 7),
                   child: Icon(Icons.settings,
-                      color: _currentPage == 2 ? Colors.blue : Colors.black, size: 28),
+                      color: _currentPage == 2 ? Colors.blue : Colors.black, size: 35),
                 ),
               ),
             ],

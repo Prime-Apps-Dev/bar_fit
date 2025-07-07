@@ -4,7 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:audioplayers/audioplayers.dart';
-import 'package:bori_as/one_screen.dart';
+import 'package:bar_fit/one_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -103,11 +103,16 @@ class _ThreeScreenState extends State<ThreeScreen> {
           startBreak();
         }
       } else {
-        if (remainingTime == 5) {
-          var audioPlayer = _audioPlayer;
-          audioPlayer.setSource(AssetSource(selectedMelody)).catchError((error) {});
-          audioPlayer.resume().catchError((error) {});
-        }
+       if (remainingTime == 5) {
+  var audioPlayer = _audioPlayer;
+  try {
+    await audioPlayer.setSource(AssetSource(selectedMelody));
+    await audioPlayer.resume();
+  } catch (error) {
+    print('Ошибка при воспроизведении мелодии: $error');
+  }
+}
+
         if (remainingTime <= 5) {
           var tickPlayer = _tickPlayer;
           tickPlayer.setSource(AssetSource('assets/sounds/tick.mp3')).catchError((error) {});
