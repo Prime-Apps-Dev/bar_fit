@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 class ModeScreen extends StatefulWidget {
   final List<Map<String, dynamic>> savedModes;
   final Function(Map<String, dynamic>) onModeSelected;
