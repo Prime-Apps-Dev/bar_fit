@@ -21,7 +21,7 @@ jobs:
         run: flutter pub get
 
       - name: Analyze code
-        run: flutter analyze; exit 0
+        run: flutter analyze || true
 
       - name: Run tests
         run: flutter test
@@ -29,18 +29,16 @@ jobs:
       - name: Build APK (release)
         run: flutter build apk --release
 
-      - name: Create GitHub Release without source code
+      - name: Save local copy of APK
         run: |
           $tag = "v1.0.${{ github.run_number }}"
-          $upload_url = curl -s -X POST https://api.github.com/repos/${{ github.repository }}/releases `
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" `
-            -H "Content-Type: application/json" `
-            -d "{`"tag_name`":`"$tag`", `"name`":`"Release $tag`", `"body`":`"Automated release`"}" `
-            | ConvertFrom-Json | Select-Object -ExpandProperty upload_url
-          
-          $upload_url = $upload_url -replace '{\?name,label}', ''
-          curl -X POST "$upload_url?name=app-release.apk" `
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" `
-            -H "Content-Type: application/vnd.android.package-archive" `
-            --data-binary "@build/app/outputs/flutter-apk/app-release.apk"
+          $targetDir = "C:\Builds\BarFit\$tag"
+          New-Item -ItemType Directory -Force -Path $targetDir
+          Copy-Item "build\app\outputs\flutter-apk\app-release.apk" "$targetDir\app-release.apk"
         shell: pwsh
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
