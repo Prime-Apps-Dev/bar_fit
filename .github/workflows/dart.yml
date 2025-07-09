@@ -21,7 +21,7 @@ jobs:
         run: flutter pub get
 
       - name: Analyze code
-        run: flutter analyze || true
+        run: flutter analyze; exit 0
 
       - name: Run tests
         run: flutter test
