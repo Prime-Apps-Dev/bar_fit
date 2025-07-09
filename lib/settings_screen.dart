@@ -1,6 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_picker/picker.dart';
+import 'package:flutter_picker_plus/flutter_picker_plus.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
